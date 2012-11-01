@@ -1,8 +1,11 @@
 (require 'ert)
 (eval-when-compile (require 'cl-lib))
 
+(setq fail-without-mocker :passed)
+
 (eval-when-compile
   (unless (require 'mocker nil t)
+    (setq fail-without-mocker :failed)
     (cl-defmacro mocker-let (specs &rest body)
       (error "Skipping tests, mocker.el is not available"))))
 
@@ -69,6 +72,7 @@
     (should (magit-git-repo-p repo))))
 
 (ert-deftest magit-init-nested ()
+  :expected-result fail-without-mocker
   (with-temp-git-repo repo
     (mocker-let
         ((yes-or-no-p (prompt)
@@ -83,6 +87,7 @@
     (should (magit-git-repo-p repo))))
 
 (ert-deftest magit-init-test-expansion ()
+  :expected-result fail-without-mocker
   (let* ((dir "~/plop")
          (exp-dir (file-name-as-directory (expand-file-name dir))))
     (mocker-let
