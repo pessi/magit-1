@@ -1161,8 +1161,47 @@ Read `completing-read' documentation for the meaning of the argument."
   (file-exists-p (expand-file-name ".git" dir)))
 
 (defun magit-git-dir ()
-  "Return the .git directory for the current repository."
-  (concat (expand-file-name (magit-git-string "rev-parse" "--git-dir")) "/"))
+  "Returns the .git directory for the current repository."
+  (file-name-as-directory
+   (magit-expand-remote-file-name
+    (magit-git-string "rev-parse" "--git-dir"))))
+
+;; Declare tramp functions for byte-compiling
+(declare-function tramp-dissect-file-name "tramp" (name &optional nodefault))
+(declare-function tramp-make-tramp-file-name "tramp" (method user host localname))
+(declare-function tramp-file-name-method "tramp" (vec))
+(declare-function tramp-file-name-user "tramp" (vec))
+(declare-function tramp-file-real-host "tramp" (vec))
+
+(defun magit-expand-remote-file-name (localname)
+  (magit-remote-file-name (expand-file-name localname)))
+
+(defun magit-remote-file-name (localname)
+  (if (file-remote-p default-directory)
+      ;; No (require 'tramp) needed - when file-remote-p is true we use tramp
+      (let ((vec (tramp-dissect-file-name default-directory)))
+        (tramp-make-tramp-file-name
+         (tramp-file-name-method vec)
+         (tramp-file-name-user vec)
+         (tramp-file-name-real-host vec)
+         localname))
+    localname))
+
+(defun magit-is-inside-git-dir ()
+  "Returns true when inside git dir."
+  (equal "true" (magit-git-string "rev-parse" "--is-inside-git-dir")))
+
+(defun magit-is-bare-repository ()
+  "Returns true when the repository is bare."
+  (equal "true" (magit-git-string "rev-parse" "--is-bare-repository")))
+
+(defun magit-git-toplevel ()
+  "Returns the top level directory for the current repository."
+    (let* ((process-file-side-effects nil)
+	   (toplevel (magit-git-string "rev-parse" "--show-toplevel")))
+      (cond (toplevel (file-name-as-directory (magit-remote-file-name toplevel)))
+            ((and (magit-is-inside-git-dir) (not (magit-is-bare-repository)))
+             (expand-file-name "../" (magit-git-dir))))))
 
 (defun magit-no-commit-p ()
   "Return non-nil if there is no commit in the current git repository."
@@ -6919,21 +6958,6 @@ This can be added to `magit-mode-hook' for example"
                  (not (eq sym 'magit-wip-save-mode)))
         (funcall sym 1)))))
 
-(magit-define-command grep (&optional pattern)
-  (interactive)
-  (let ((pattern (or pattern
-                     (read-string "git grep: "
-                                  (shell-quote-argument (grep-tag-default))))))
-    (with-current-buffer (generate-new-buffer "*Magit Grep*")
-      (let ((default-directory (magit-get-top-dir)))
-        (insert magit-git-executable " "
-                (mapconcat 'identity magit-git-standard-options " ")
-                " grep -n "
-                (shell-quote-argument pattern) "\n\n")
-        (magit-git-insert (list "grep" "--line-number" pattern))
-        (grep-mode)
-        (pop-to-buffer (current-buffer))))))
-
 (defconst magit-font-lock-keywords
   (eval-when-compile
     `((,(concat "(\\(" (regexp-opt
@@ -6970,5 +6994,6 @@ init file:
 ;; rest of magit core
 (require 'magit-key-mode)
 (require 'magit-bisect)
+(require 'magit-grep)
 
 ;;; magit.el ends here
