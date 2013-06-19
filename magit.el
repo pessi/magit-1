@@ -1160,8 +1160,31 @@ Read `completing-read' documentation for the meaning of the argument."
   (file-exists-p (expand-file-name ".git" dir)))
 
 (defun magit-git-dir ()
-  "Return the .git directory for the current repository."
-  (concat (expand-file-name (magit-git-string "rev-parse" "--git-dir")) "/"))
+  "Returns the .git directory for the current repository."
+  (file-name-as-directory
+   (magit-expand-remote-file-name
+    (magit-git-string "rev-parse" "--git-dir"))))
+
+;; Declare tramp functions for byte-compiling
+(declare-function tramp-dissect-file-name "tramp" (name &optional nodefault))
+(declare-function tramp-make-tramp-file-name "tramp" (method user host localname))
+(declare-function tramp-file-name-method "tramp" (vec))
+(declare-function tramp-file-name-user "tramp" (vec))
+(declare-function tramp-file-real-host "tramp" (vec))
+
+(defun magit-expand-remote-file-name (localname)
+  (magit-remote-file-name (expand-file-name localname)))
+
+(defun magit-remote-file-name (localname)
+  (if (file-remote-p default-directory)
+      ;; No (require 'tramp) needed - when file-remote-p is true we use tramp
+      (let ((vec (tramp-dissect-file-name default-directory)))
+        (tramp-make-tramp-file-name
+         (tramp-file-name-method vec)
+         (tramp-file-name-user vec)
+         (tramp-file-name-real-host vec)
+         localname))
+    localname))
 
 (defun magit-no-commit-p ()
   "Return non-nil if there is no commit in the current git repository."
