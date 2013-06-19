@@ -102,3 +102,5 @@ to go to the lines where git grep found matches."
 		 (format " (default \"%s\")" default) "")
 	     (if whole-tree " in whole git tree" ""))
      nil 'magit-grep-string-history default)))
+
+(provide 'magit-grep)
